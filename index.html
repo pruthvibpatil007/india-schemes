@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sarkari Saathi | सरकारी साथी</title>
+<style>
+  :root{--bg:#fff8ef;--ink:#1f2937;--saffron:#e8730c;--green:#138808;--navy:#1e3a8a;--card:#fff;--line:#f1d9bd}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari",sans-serif;background:var(--bg);color:var(--ink);font-size:19px;line-height:1.5}
+  header{background:linear-gradient(90deg,var(--saffron),#f59e0b);color:#fff;padding:18px 16px;text-align:center}
+  header h1{margin:0;font-size:1.6rem}
+  header p{margin:4px 0 0;font-size:1rem;opacity:.95}
+  main{max-width:640px;margin:0 auto;padding:16px}
+  .card{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px}
+  .progress{height:10px;background:#f3e6d3;border-radius:8px;overflow:hidden;margin-bottom:6px}
+  .progress div{height:100%;background:var(--green);width:0;transition:width .3s}
+  .step{font-size:.9rem;color:#6b7280;margin-bottom:10px}
+  h2{margin:0 0 14px;font-size:1.35rem}
+  h2 small{display:block;font-weight:500;font-size:1rem;color:#6b7280;margin-top:2px}
+  .btn{display:block;width:100%;min-height:60px;margin:0 0 12px;padding:14px 16px;font-size:1.15rem;font-weight:600;text-align:left;color:var(--ink);background:#fff;border:2px solid var(--saffron);border-radius:14px;cursor:pointer}
+  .btn:active,.btn:focus-visible{background:#fff1e0;outline:3px solid var(--navy)}
+  .btn small{display:block;font-weight:400;color:#6b7280}
+  .primary{background:var(--green);border-color:var(--green);color:#fff;text-align:center}
+  .primary:active{background:#0f6a06}
+  .ghost{border-color:#9ca3af;text-align:center;font-weight:500}
+  input,select{width:100%;min-height:60px;font-size:1.2rem;padding:12px;border:2px solid var(--saffron);border-radius:14px;background:#fff;margin-bottom:12px}
+  .err{background:#fee2e2;border:2px solid #dc2626;color:#7f1d1d;padding:14px;border-radius:12px;margin-bottom:12px}
+  .scheme{border-left:6px solid var(--saffron);padding:8px 12px;margin-bottom:12px;background:#fffaf3;border-radius:8px}
+  .scheme h3{margin:0 0 4px;font-size:1.15rem}
+  .scheme p{margin:0}
+  ul{padding-left:22px;margin:6px 0}
+  .first{background:#e8f5e9;border:2px solid var(--green);border-radius:12px;padding:12px}
+  .disclaimer{margin-top:16px;padding:14px;background:#eef2ff;border:2px solid var(--navy);border-radius:12px;font-weight:700;text-align:center}
+  .spinner{width:44px;height:44px;border:6px solid #f3e6d3;border-top-color:var(--saffron);border-radius:50%;animation:s 1s linear infinite;margin:20px auto}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .hint{font-size:.85rem;color:#6b7280;text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🇮🇳 Sarkari Saathi · सरकारी साथी</h1>
+  <p>Find welfare schemes for you · आपके लिए सरकारी योजनाएँ खोजें</p>
+</header>
+<main>
+  <div class="progress"><div id="bar"></div></div>
+  <div class="step" id="stepLabel"></div>
+  <div id="app" class="card" aria-live="polite"></div>
+  <div class="hint">Your answers are used only to find schemes. · आपके जवाब सिर्फ योजनाएँ खोजने के लिए हैं।</div>
+</main>
+
+<script>
+/* ============ CONFIGURE THIS ONE LINE ============
+   URL of your deployed proxy (see worker.js). The Gemini API key lives ONLY in the proxy,
+   never in this page, so nobody can view-source it, copy it, or reuse it. */
+const PROXY_URL = "https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev";
+/* ================================================= */
+
+const DISCLAIMER_EN = "This is guidance. The office decides.";
+const DISCLAIMER_HI = "यह मार्गदर्शन है। निर्णय कार्यालय करेगा।";
+
+const STATES = ["Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal","Andaman and Nicobar Islands","Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir","Ladakh","Lakshadweep","Puducherry"];
+
+const QUESTIONS = [
+  {key:"state", en:"Which state do you live in?", hi:"आप किस राज्य में रहते हैं?", type:"select"},
+  {key:"age", en:"What is your age?", hi:"आपकी उम्र क्या है?", type:"number"},
+  {key:"sex", en:"What is your sex?", hi:"आपका लिंग क्या है?", type:"choice", options:[
+    {v:"Male", en:"Male", hi:"पुरुष"},
+    {v:"Female", en:"Female", hi:"महिला"},
+    {v:"Other", en:"Other", hi:"अन्य"}]},
+  {key:"situation", en:"Which describes you best?", hi:"इनमें से आप पर क्या लागू होता है?", type:"choice", options:[
+    {v:"Widow", en:"Widow", hi:"विधवा"},
+    {v:"Senior citizen", en:"Senior citizen", hi:"वरिष्ठ नागरिक"},
+    {v:"Farmer", en:"Farmer", hi:"किसान"},
+    {v:"Student", en:"Student", hi:"विद्यार्थी"},
+    {v:"Unemployed", en:"Unemployed", hi:"बेरोज़गार"}]},
+  {key:"income", en:"Yearly family income?", hi:"परिवार की सालाना आमदनी?", type:"choice", options:[
+    {v:"Below ₹1 lakh per year", en:"Below ₹1 lakh", hi:"₹1 लाख से कम"},
+    {v:"₹1–3 lakh per year", en:"₹1–3 lakh", hi:"₹1–3 लाख"},
+    {v:"₹3–6 lakh per year", en:"₹3–6 lakh", hi:"₹3–6 लाख"},
+    {v:"Above ₹6 lakh per year", en:"Above ₹6 lakh", hi:"₹6 लाख से ज़्यादा"}]},
+  {key:"language", en:"Which language for the answer?", hi:"जवाब किस भाषा में चाहिए?", type:"choice", options:[
+    {v:"Hindi", en:"हिंदी", hi:"Hindi"},
+    {v:"English", en:"English", hi:"अंग्रेज़ी"}]}
+];
+
+const answers = {};
+let step = 0;
+const app = document.getElementById("app");
+const bar = document.getElementById("bar");
+const stepLabel = document.getElementById("stepLabel");
+
+function el(tag, props = {}, ...kids){
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(props)){
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  kids.forEach(c => e.append(c));
+  return e;
+}
+
+function renderQuestion(){
+  const q = QUESTIONS[step];
+  app.innerHTML = "";
+  bar.style.width = (step / QUESTIONS.length * 100) + "%";
+  stepLabel.textContent = `Question ${step+1} of ${QUESTIONS.length} · प्रश्न ${step+1} / ${QUESTIONS.length}`;
+  app.append(el("h2", {}, q.en, el("small", {}, q.hi)));
+
+  if (q.type === "choice"){
+    q.options.forEach(o => {
+      app.append(el("button", {class:"btn", onclick:()=>next(q.key,o.v)}, o.en, el("small", {}, o.hi)));
+    });
+  } else if (q.type === "select"){
+    const sel = el("select", {"aria-label":q.en},
+      el("option", {value:""}, "Select · चुनें"),
+      ...STATES.map(s => el("option", {value:s}, s)));
+    if (answers.state) sel.value = answers.state;
+    app.append(sel, el("button", {class:"btn primary", onclick:()=>{
+      if (!sel.value) return showInlineError("Please choose a state · कृपया राज्य चुनें");
+      next(q.key, sel.value);
+    }}, "Next · आगे"));
+  } else if (q.type === "number"){
+    const inp = el("input", {type:"number", inputmode:"numeric", min:"1", max:"120", placeholder:"e.g. 62", "aria-label":q.en});
+    if (answers.age) inp.value = answers.age;
+    app.append(inp, el("button", {class:"btn primary", onclick:()=>{
+      const n = parseInt(inp.value, 10);
+      if (!n || n < 1 || n > 120) return showInlineError("Please enter a valid age · सही उम्र लिखें");
+      next(q.key, String(n));
+    }}, "Next · आगे"));
+  }
+  if (step > 0){
+    app.append(el("button", {class:"btn ghost", onclick:()=>{step--; renderQuestion();}}, "← Back · पीछे"));
+  }
+}
+
+function showInlineError(msg){
+  const old = app.querySelector(".err"); if (old) old.remove();
+  app.insertBefore(el("div", {class:"err", role:"alert"}, msg), app.children[1]);
+}
+
+function next(key, val){
+  answers[key] = val;
+  step++;
+  if (step < QUESTIONS.length) renderQuestion(); else getResults();
+}
+
+async function getResults(){
+  bar.style.width = "100%";
+  stepLabel.textContent = "Searching · खोज जारी है";
+  app.innerHTML = "";
+  app.append(el("div", {class:"spinner"}), el("p", {style:"text-align:center"}, "Finding schemes for you… · आपके लिए योजनाएँ खोज रहे हैं…"));
+
+  try{
+    if (PROXY_URL.includes("YOUR-WORKER")) throw new Error("NO_PROXY");
+    const res = await fetch(PROXY_URL, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(answers)
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    renderResults(await res.json());
+  } catch(e){
+    renderError(e);
+  }
+}
+
+function renderResults(r){
+  const hindi = answers.language === "Hindi";
+  const L = hindi
+    ? {schemes:"आपके लिए संभावित योजनाएँ", docs:"ज़रूरी कागज़ात", first:"पहला कदम", none:"कोई मेल खाती योजना नहीं मिली।", again:"फिर से शुरू करें"}
+    : {schemes:"Schemes that may fit you", docs:"Documents you may need", first:"Your first step", none:"No matching scheme found.", again:"Start again"};
+  app.innerHTML = "";
+  stepLabel.textContent = hindi ? "आपके नतीजे" : "Your results";
+
+  if (r.message) app.append(el("p", {}, String(r.message)));
+
+  app.append(el("h2", {}, "📋 " + L.schemes));
+  const schemes = Array.isArray(r.schemes) ? r.schemes : [];
+  if (!schemes.length) app.append(el("p", {}, L.none));
+  schemes.forEach(s => app.append(el("div", {class:"scheme"},
+    el("h3", {}, String(s.name || "")), el("p", {}, String(s.why || "")))));
+
+  const docs = Array.isArray(r.documents) ? r.documents : [];
+  if (docs.length){
+    app.append(el("h2", {}, "📄 " + L.docs));
+    app.append(el("ul", {}, ...docs.map(d => el("li", {}, String(d)))));
+  }
+  if (r.first_step){
+    app.append(el("h2", {style:"margin-top:18px"}, "👉 " + L.first));
+    app.append(el("div", {class:"first"}, String(r.first_step)));
+  }
+
+  app.append(el("div", {class:"disclaimer"}, DISCLAIMER_EN, el("br"), hindi ? DISCLAIMER_HI : ""));
+  app.append(el("button", {class:"btn ghost", style:"margin-top:16px", onclick:restart}, "🔄 " + L.again));
+}
+
+function renderError(e){
+  app.innerHTML = "";
+  stepLabel.textContent = "";
+  let en = "Something went wrong. Please check your internet and try again.";
+  let hi = "कुछ गड़बड़ हो गई। इंटरनेट जाँचें और दोबारा कोशिश करें।";
+  if (e.message === "NO_PROXY"){
+    en = "The site owner has not connected the server yet.";
+    hi = "साइट के मालिक ने अभी सर्वर नहीं जोड़ा है।";
+  } else if (/HTTP 429/.test(e.message)){
+    en = "Too many requests right now. Please wait a minute and try again.";
+    hi = "अभी बहुत अनुरोध हैं। एक मिनट बाद फिर कोशिश करें।";
+  }
+  app.append(el("div", {class:"err", role:"alert"}, en, el("br"), hi));
+  app.append(el("button", {class:"btn primary", onclick:getResults}, "Try again · दोबारा कोशिश करें"));
+  app.append(el("button", {class:"btn ghost", onclick:restart}, "Start over · फिर से शुरू करें"));
+  app.append(el("div", {class:"disclaimer"}, DISCLAIMER_EN, el("br"), DISCLAIMER_HI));
+}
+
+function restart(){
+  for (const k in answers) delete answers[k];
+  step = 0;
+  renderQuestion();
+}
+
+renderQuestion();
+</script>
+</body>
+</html>
