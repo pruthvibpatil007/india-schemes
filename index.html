@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sarkari Saathi</title>
+<style>
+  :root{--saffron:#e8731a;--green:#138808;--navy:#1b2a4a;--bg:#fff8ef;--card:#fff;--line:#f0d9bd}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari",sans-serif;background:var(--bg);color:var(--navy);font-size:18px;line-height:1.5}
+  header{background:var(--saffron);color:#fff;padding:18px 16px;text-align:center}
+  header h1{margin:0;font-size:26px}
+  header p{margin:4px 0 0;font-size:15px;opacity:.95}
+  main{max-width:640px;margin:0 auto;padding:16px}
+  .card{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:20px;margin-bottom:16px}
+  .progress{height:10px;background:var(--line);border-radius:6px;overflow:hidden;margin-bottom:6px}
+  .progress div{height:100%;background:var(--green);width:0;transition:width .3s}
+  .step{font-size:14px;margin-bottom:12px;color:#5a6785}
+  h2{margin:0 0 16px;font-size:23px}
+  .btn{display:block;width:100%;min-height:62px;padding:14px 16px;margin:0 0 12px;font-size:20px;font-weight:600;border-radius:14px;border:3px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer;text-align:center}
+  .btn:active,.btn:focus-visible{background:#ffe9d0;outline:3px solid var(--saffron)}
+  .btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+  .btn.ghost{border-color:#9aa5bd;color:#5a6785;font-weight:500;min-height:52px;font-size:17px}
+  input,select{width:100%;min-height:62px;font-size:22px;padding:10px 14px;border:3px solid var(--navy);border-radius:14px;background:#fff;color:var(--navy);margin-bottom:12px}
+  .sum{list-style:none;padding:0;margin:0 0 16px}
+  .sum li{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .sum b{text-align:right}
+  .scheme h3{margin:0 0 6px;font-size:22px;color:var(--green)}
+  .scheme h4{margin:14px 0 4px;font-size:17px}
+  .scheme ul{margin:0;padding-left:22px}
+  .why{margin:0;color:#44506d}
+  .first{background:#e9f6e7;border-left:6px solid var(--green);padding:10px 12px;border-radius:8px;margin:0}
+  .notice{background:#fff3cd;border:2px solid #e0b84a;border-radius:12px;padding:12px;font-size:16px;margin-bottom:16px}
+  .final{text-align:center;font-weight:700;font-size:21px;padding:18px 8px}
+  .err{background:#fde8e8;border:2px solid #d33;border-radius:12px;padding:14px;margin-bottom:12px}
+  .spin{width:48px;height:48px;border:6px solid var(--line);border-top-color:var(--saffron);border-radius:50%;animation:s 1s linear infinite;margin:20px auto}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>🙏 Sarkari Saathi · सरकारी साथी</h1>
+  <p>Find government schemes that may help you · आपके लिए सरकारी योजनाएँ खोजें</p>
+</header>
+<main>
+  <div id="app"></div>
+</main>
+
+<script>
+/* ================= CONFIG =================
+   WARNING: Anything in this file is visible to every visitor.
+   A Gemini key placed here can be copied by anyone who opens the site.
+   For a public site, move the Gemini call to a small server/proxy
+   and keep the key there. Until then, restrict the key (HTTP referrer +
+   API restriction) in Google AI Studio / Cloud Console and set a quota. */
+const GEMINI_API_KEY = "AQ.Ab8RN6KH_UsY5jtMpBnXOgSL-PQhHe4mzSow0cjQ558kWnf8FQ";
+const GEMINI_MODEL   = "gemini-2.5-flash";
+/* Web URL that receives the 6 answers via POST (JSON). Leave "" to skip. */
+const SUBMIT_URL     = "";
+/* ========================================== */
+
+const STATES = ["Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal","Andaman & Nicobar Islands","Chandigarh","Dadra & Nagar Haveli and Daman & Diu","Delhi","Jammu & Kashmir","Ladakh","Lakshadweep","Puducherry"];
+
+const QUESTIONS = [
+  {key:"state",  type:"select", q:"Which state or UT do you live in?\nआप किस राज्य में रहते हैं?", options:STATES},
+  {key:"age",    type:"number", q:"What is your age?\nआपकी उम्र कितनी है?"},
+  {key:"sex",    type:"choice", q:"Sex / लिंग",
+    options:[["Female","Female · महिला"],["Male","Male · पुरुष"],["Other","Other · अन्य"]]},
+  {key:"situation", type:"choice", q:"Which describes you best?\nआपकी स्थिति क्या है?",
+    options:[["Widow","Widow · विधवा"],["Senior citizen","Senior citizen · वरिष्ठ नागरिक"],["Farmer","Farmer · किसान"],["Student","Student · विद्यार्थी"],["Unemployed","Unemployed · बेरोज़गार"]]},
+  {key:"income", type:"choice", q:"Yearly family income?\nपरिवार की सालाना आमदनी?",
+    options:[["Below ₹1 lakh per year","Below ₹1 lakh · ₹1 लाख से कम"],["₹1 lakh to ₹3 lakh per year","₹1–3 lakh · ₹1–3 लाख"],["₹3 lakh to ₹8 lakh per year","₹3–8 lakh · ₹3–8 लाख"],["Above ₹8 lakh per year","Above ₹8 lakh · ₹8 लाख से ज़्यादा"]]},
+  {key:"language", type:"choice", q:"Choose your language\nभाषा चुनें",
+    options:[["English","English"],["Hindi","हिन्दी (Hindi)"]]}
+];
+
+const app = document.getElementById("app");
+let step = 0;
+const answers = {};
+
+function el(tag, props = {}, ...kids){
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(props)){
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  kids.flat().forEach(c => e.append(c instanceof Node ? c : document.createTextNode(c)));
+  return e;
+}
+function clear(){ app.replaceChildren(); }
+function isHindi(){ return answers.language === "Hindi"; }
+
+function renderQuestion(){
+  clear();
+  const Q = QUESTIONS[step];
+  const card = el("div",{class:"card"});
+  card.append(
+    el("div",{class:"progress"}, el("div",{style:`width:${(step/QUESTIONS.length)*100}%`})),
+    el("div",{class:"step"}, `Question ${step+1} of ${QUESTIONS.length}`)
+  );
+  const h = el("h2");
+  Q.q.split("\n").forEach((line,i)=>{ if(i) h.append(el("br")); h.append(line); });
+  card.append(h);
+
+  const next = (val) => { answers[Q.key] = val; step++; step < QUESTIONS.length ? renderQuestion() : renderReview(); };
+
+  if (Q.type === "choice"){
+    Q.options.forEach(([val,label]) => card.append(el("button",{class:"btn",type:"button",onclick:()=>next(val)}, label)));
+  } else if (Q.type === "select"){
+    const sel = el("select",{"aria-label":"State"}, el("option",{value:""},"— Select / चुनें —"),
+      Q.options.map(o => el("option",{value:o},o)));
+    if (answers[Q.key]) sel.value = answers[Q.key];
+    const err = el("div",{class:"err hidden"},"Please choose a state. / कृपया राज्य चुनें।");
+    card.append(sel, err, el("button",{class:"btn primary",type:"button",onclick:()=>{
+      if(!sel.value){ err.classList.remove("hidden"); return; } next(sel.value);
+    }},"Next · आगे"));
+  } else if (Q.type === "number"){
+    const inp = el("input",{type:"number",inputmode:"numeric",min:"1",max:"120","aria-label":"Age",placeholder:"e.g. 45"});
+    if (answers[Q.key]) inp.value = answers[Q.key];
+    const err = el("div",{class:"err hidden"},"Enter an age between 1 and 120. / 1 से 120 के बीच उम्र लिखें।");
+    card.append(inp, err, el("button",{class:"btn primary",type:"button",onclick:()=>{
+      const n = parseInt(inp.value,10);
+      if(!(n>=1 && n<=120)){ err.classList.remove("hidden"); return; } next(n);
+    }},"Next · आगे"));
+  }
+  if (step > 0) card.append(el("button",{class:"btn ghost",type:"button",onclick:()=>{step--;renderQuestion();}},"← Back · पीछे"));
+  app.append(card);
+  window.scrollTo(0,0);
+}
+
+function renderReview(){
+  clear();
+  const labels = {state:"State / राज्य",age:"Age / उम्र",sex:"Sex / लिंग",situation:"Situation / स्थिति",income:"Income / आमदनी",language:"Language / भाषा"};
+  const ul = el("ul",{class:"sum"});
+  QUESTIONS.forEach(Q => ul.append(el("li",{}, el("span",{},labels[Q.key]), el("b",{}, String(answers[Q.key])))));
+  app.append(el("div",{class:"card"},
+    el("div",{class:"progress"}, el("div",{style:"width:100%"})),
+    el("h2",{},"Check your answers\nअपने उत्तर जाँचें".replace("\n"," · ")),
+    ul,
+    el("button",{class:"btn primary",type:"button",onclick:submitAll},"Submit · जमा करें"),
+    el("button",{class:"btn ghost",type:"button",onclick:()=>{step=0;renderQuestion();}},"Start over · फिर से शुरू करें")
+  ));
+}
+
+function showLoading(){
+  clear();
+  app.append(el("div",{class:"card",style:"text-align:center"},
+    el("div",{class:"spin"}),
+    el("p",{}, isHindi() ? "आपके लिए योजनाएँ खोजी जा रही हैं…" : "Finding schemes for you…")));
+}
+
+function showError(msg){
+  clear();
+  app.append(el("div",{class:"card"},
+    el("div",{class:"err"}, msg),
+    el("button",{class:"btn primary",type:"button",onclick:submitAll},"Try again · दोबारा कोशिश करें"),
+    el("button",{class:"btn ghost",type:"button",onclick:renderReview},"← Back · पीछे")));
+}
+
+async function submitAll(){
+  showLoading();
+  // 1) POST all 6 answers to the configured URL
+  if (SUBMIT_URL){
+    try{
+      await fetch(SUBMIT_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(answers)});
+    }catch(e){ console.warn("POST to SUBMIT_URL failed", e); }
+  }
+  // 2) Ask Gemini for matching schemes
+  try{
+    const data = await askGemini(answers);
+    renderResults(data);
+  }catch(e){
+    console.error(e);
+    showError(isHindi()
+      ? "योजनाएँ नहीं मिल सकीं। इंटरनेट जाँचें और दोबारा कोशिश करें।"
+      : "Could not fetch schemes. Check your internet and try again.");
+  }
+}
+
+async function askGemini(a){
+  const lang = a.language === "Hindi" ? "Hindi (Devanagari script)" : "simple English";
+  const prompt =
+`You help Indian citizens find government welfare schemes (central and state).
+User profile:
+- State/UT: ${a.state}
+- Age: ${a.age}
+- Sex: ${a.sex}
+- Situation: ${a.situation}
+- Family income band: ${a.income}
+
+Task: list up to 6 real, currently-existing Indian government schemes this person may be eligible for, most relevant first. Prefer well-known schemes; include state schemes of ${a.state} only if you are confident they exist.
+Rules:
+- Write everything in ${lang}, using very simple words for a first-time reader.
+- NEVER state benefit amounts as final or guaranteed. If you mention money, say "about" or "may be" and that the office will confirm. Prefer describing the benefit without exact figures.
+- Do not invent scheme names, helpline numbers or web links. Do not include URLs or phone numbers.
+- If eligibility depends on facts you do not know, say it "may" apply.
+- "documents" = documents commonly needed (e.g. Aadhaar, income certificate, bank passbook).
+- "first_step" = one concrete first action (e.g. which office or CSC to visit).
+Return only JSON.`;
+
+  const body = {
+    contents:[{role:"user",parts:[{text:prompt}]}],
+    generationConfig:{
+      temperature:0.3,
+      responseMimeType:"application/json",
+      responseSchema:{
+        type:"OBJECT",
+        properties:{
+          schemes:{type:"ARRAY",items:{type:"OBJECT",properties:{
+            name:{type:"STRING"},
+            why_it_may_fit:{type:"STRING"},
+            documents:{type:"ARRAY",items:{type:"STRING"}},
+            first_step:{type:"STRING"}
+          },required:["name","why_it_may_fit","documents","first_step"]}}
+        },
+        required:["schemes"]
+      }
+    }
+  };
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-goog-api-key":GEMINI_API_KEY},
+    body:JSON.stringify(body)
+  });
+  if(!res.ok) throw new Error("Gemini HTTP "+res.status+" "+await res.text());
+  const json = await res.json();
+  const text = json?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("") || "";
+  const parsed = JSON.parse(text);
+  if(!Array.isArray(parsed.schemes)) throw new Error("Bad response shape");
+  return parsed;
+}
+
+function renderResults(data){
+  clear();
+  const hi = isHindi();
+  const T = hi
+    ? {title:"आपके लिए संभावित योजनाएँ",docs:"ज़रूरी दस्तावेज़",first:"पहला कदम",none:"कोई योजना नहीं मिली। नज़दीकी CSC या ब्लॉक कार्यालय में पूछें।",again:"नई खोज · फिर से शुरू करें",warn:"यह AI से बनी जानकारी है। नाम और नियम सरकारी कार्यालय या आधिकारिक वेबसाइट पर ज़रूर जाँचें।"}
+    : {title:"Schemes that may help you",docs:"Documents needed",first:"First step",none:"No schemes found. Ask at your nearest CSC or block office.",again:"Start again",warn:"This information is AI-generated. Please confirm scheme names and rules with the government office or official website."};
+
+  app.append(el("div",{class:"card"}, el("h2",{},T.title), el("div",{class:"notice"},T.warn)));
+  const schemes = data.schemes.slice(0,6);
+  if(!schemes.length) app.append(el("div",{class:"card"},T.none));
+  schemes.forEach(s=>{
+    const docs = Array.isArray(s.documents) ? s.documents : [];
+    app.append(el("div",{class:"card scheme"},
+      el("h3",{},String(s.name||"")),
+      el("p",{class:"why"},String(s.why_it_may_fit||"")),
+      el("h4",{},"📄 "+T.docs),
+      el("ul",{},docs.map(d=>el("li",{},String(d)))),
+      el("h4",{},"👉 "+T.first),
+      el("p",{class:"first"},String(s.first_step||""))
+    ));
+  });
+  const fin = el("div",{class:"card final"}, "This is guidance. The office decides.");
+  if(hi) fin.append(el("br"), "यह केवल मार्गदर्शन है। निर्णय कार्यालय करता है।");
+  app.append(fin, el("button",{class:"btn primary",type:"button",onclick:()=>{step=0;for(const k in answers)delete answers[k];renderQuestion();}},T.again));
+  window.scrollTo(0,0);
+}
+
+renderQuestion();
+</script>
+</body>
+</html>
