@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Government Schemes Finder</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+    <div class="max-w-3xl mx-auto p-6 my-10 bg-white rounded-xl shadow-md">
+        <h1 class="text-2xl font-bold text-blue-700 mb-2">Government Schemes Finder</h1>
+        <p class="text-sm text-gray-600 mb-6">Enter your details below to find matching Indian central & state schemes.</p>
+
+        <form id="schemeForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium">Age</label>
+                    <input type="number" id="age" required class="w-full mt-1 p-2 border rounded-md" value="25">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium">Gender</label>
+                    <select id="gender" class="w-full mt-1 p-2 border rounded-md">
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium">State of Residence</label>
+                    <input type="text" id="state" required class="w-full mt-1 p-2 border rounded-md" value="Karnataka">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium">Social Category</label>
+                    <select id="category" class="w-full mt-1 p-2 border rounded-md">
+                        <option value="General">General</option>
+                        <option value="OBC">OBC</option>
+                        <option value="SC">SC</option>
+                        <option value="ST">ST</option>
+                        <option value="EWS">EWS</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium">Annual Family Income (INR)</label>
+                    <input type="number" id="annual_income" required class="w-full mt-1 p-2 border rounded-md" value="150000">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium">Occupation</label>
+                    <select id="occupation" class="w-full mt-1 p-2 border rounded-md">
+                        <option value="Farmer">Farmer</option>
+                        <option value="Student">Student</option>
+                        <option value="Salaried">Salaried</option>
+                        <option value="Self-Employed / Entrepreneur">Self-Employed / Entrepreneur</option>
+                        <option value="Daily Wage Earner">Daily Wage Earner</option>
+                        <option value="Unemployed">Unemployed</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn" class="w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition">
+                Find Eligible Schemes
+            </button>
+        </form>
+
+        <div id="loading" class="hidden text-center my-6 text-blue-600 font-medium">Searching matching schemes via Gemini...</div>
+        
+        <div id="results" class="mt-8 space-y-4"></div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
